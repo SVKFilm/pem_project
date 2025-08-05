@@ -16,7 +16,7 @@ from NN_PEM import BoundingBoxErrorNet
 # scaler_y = joblib.load('output_scaler.pkl')
 
 # === Load sample data ===
-df = pd.read_csv('C:/Users/User/Desktop/UoE/DISS/car_ped_prediction/error/matched_boxes_with_error_v8s_5class_cleaned.csv')
+df = pd.read_csv('./error/matched_boxes_with_error_v8s_5class_cleaned.csv')
 # df = pd.read_csv('C:/Users/User/Desktop/UoE/DISS/car_ped_prediction/sampled_error/matched_boxes_with_error_conf7560_500_cleaned_toTrain.csv')
 df = df[df['occluded'] != 3].reset_index(drop=True)
 
