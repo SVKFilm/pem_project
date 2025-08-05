@@ -112,6 +112,6 @@ def plot_bounding_boxes(image_path):
     plt.show()
 
 # === Example usage ===
-im_path = "C:/Users/User/Desktop/UoE/DISS/Datasets/full_dataset/images/training/train/000173.png"
+im_path = "000173.png"
 # im_path = "C:/Users/User/Desktop/UoE/DISS/Datasets/full_dataset/images/training/val/000076.png"
 plot_bounding_boxes(im_path)

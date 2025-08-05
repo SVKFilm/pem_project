@@ -6,10 +6,14 @@ from scipy.stats import multivariate_normal
 from itertools import product
 import pickle
 import joblib
+import multiprocessing as mp
 
 # === Set Random Seed for Reproducibility ===
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
+
+n_samples = 50
+n_processes = 18
 
 # === Load Evaluation Dataset ===
 df = pd.read_csv('C:/Users/User/Desktop/UoE/DISS/car_ped_prediction/error/test/matched_boxes_with_error_v8s_5class_cleaned.csv')
@@ -50,12 +54,19 @@ z = np.linspace(-1, 1, 20)
 z_vals = 50 * z**3  # Center bias
 z_range = np.array(list(product(z_vals, z_vals, z_vals, z_vals)))
 
-# === Output directory ===
-output_dir = f"kde_predictions_{case_name}"
-os.makedirs(output_dir, exist_ok=True)
+# === Pack shared variables for all processes ===
+shared_data = {
+    "x_train": x_train,
+    "z_train": z_train,
+    "h_rel_vec": h_rel_vec,
+    "H_con": H_con,
+    "z_range": z_range,
+    "n_samples": n_samples
+}
 
-# === KDE Prediction Function ===
-def kde_predict(x_query, x_train, z_train, h_rel_vec, H_con, z_range, n_samples=50):
+# === Worker Function ===
+def kde_worker(idx):
+    x_query = x_train[idx]
     x_diff = (x_train - x_query) / h_rel_vec
     weights = np.exp(-0.5 * np.sum(x_diff**2, axis=1))
     weights /= np.sum(weights)
@@ -73,25 +84,30 @@ def kde_predict(x_query, x_train, z_train, h_rel_vec, H_con, z_range, n_samples=
     sample_indices = np.searchsorted(cdf, rand_vals)
     samples = z_range[sample_indices]
 
-    return mu_map, samples
-
-# === Run Inference and Collect Results ===
-print(f"🔍 Running KDE inference for {len(df)} rows...")
-
-records = []
-for idx in tqdm(range(len(df)), desc="KDE Inference"):
-    x_input = X_raw.iloc[idx].values
-    mu_map, samples = kde_predict(x_input, x_train, z_train, h_rel_vec, H_con, z_range, n_samples=50)
-
     row = {"index": idx}
     row.update({f"mu_map_{i}": mu_map[i] for i in range(4)})
     for i in range(samples.shape[0]):
         for j in range(4):
             row[f"sample_{i}_{j}"] = samples[i, j]
+    return row
 
-    records.append(row)
+# === Enable sharing globals in worker scope ===
+def init_worker():
+    global x_train, z_train, h_rel_vec, H_con, z_range, n_samples
+    x_train = shared_data["x_train"]
+    z_train = shared_data["z_train"]
+    h_rel_vec = shared_data["h_rel_vec"]
+    H_con = shared_data["H_con"]
+    z_range = shared_data["z_range"]
+    n_samples = shared_data["n_samples"]
 
-# === Save to CSV ===
-df_kde = pd.DataFrame(records).set_index("index")
-df_kde.to_csv(csv_out_path)
-print(f"\n✅ KDE prediction results saved to: {csv_out_path}")
+# === Run Parallel Inference ===
+if __name__ == "__main__":
+    print(f"🚀 Starting parallel KDE inference on {len(df)} rows with {n_processes} workers...")
+
+    with mp.Pool(processes=n_processes, initializer=init_worker) as pool:
+        results = list(tqdm(pool.imap(kde_worker, range(len(df))), total=len(df)))
+
+    df_kde = pd.DataFrame(results).set_index("index")
+    df_kde.to_csv(csv_out_path)
+    print(f"\n✅ Saved CSV: {csv_out_path}")
