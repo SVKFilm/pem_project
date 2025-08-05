@@ -1,0 +1,7 @@
+# dataset.yaml
+path: C:/Users/User/Desktop/UoE/DISS/Datasets/full_dataset
+train: images/training/train
+val: images/training/val
+names:
+  0: Car
+  1: Pedestrian
